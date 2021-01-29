@@ -11,5 +11,7 @@
 ### flags
 
 -p [Name of Agent in pacmanAgents.py]
+
 -n [Number of games]
+
 -g [Name of Ghost Agents in ghostAgents.py]

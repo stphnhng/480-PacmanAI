@@ -332,7 +332,7 @@ class PacmanGraphics:
                     (frames-i)/frames, py*i/frames + fy*(frames-i)/frames
                 self.movePacman(pos, self.getDirection(pacman), image)
                 refresh()
-                sleep(abs(self.frameTime) / frames)
+                #sleep(abs(self.frameTime) / frames)
         else:
             self.movePacman(self.getPosition(pacman),
                             self.getDirection(pacman), image)

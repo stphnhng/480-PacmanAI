@@ -53,10 +53,232 @@ import time
 import random
 import os
 
+import neat
+
 ###################################################
 # YOUR INTERFACE TO THE PACMAN WORLD: A GameState #
 ###################################################
 
+class NEAT_Game():
+
+    def __init__(self, layout, pacman, ghosts, gameDisplay, quiet, catchExceptions, rules):
+        self.layout = layout
+        self.pacman = pacman
+        self.ghost = ghosts
+        self.display = gameDisplay
+        self.quiet = quiet
+        self.catchExceptions = catchExceptions
+        self.rules = rules
+
+    def run_NEAT(self, genomes, config):
+        """
+        Main control loop for game play.
+        """
+        nets = []
+        pacs = []
+        ge = []
+        games = []
+
+        for _, g in genomes:
+            net = neat.nn.FeedForwardNetwork.create(g, config)
+            nets.append(net)
+            g.fitness = 0
+            ge.append(g)
+            pacman = self.pacman()
+            pacman.setNet(net)
+            pacs.append(pacman)
+            game = self.rules.newGame(self.layout.deepCopy(), pacman,
+                [self.ghost(i + 1) for i in range(0)],
+                self.display, self.quiet, self.catchExceptions)
+            games.append(game)
+
+
+
+        for game in games:
+            game.numMoves = 0
+
+            # self.display.initialize(self.state.makeObservation(1).data)
+            # inform learning agents of the game start
+            for i in range(len(game.agents)):
+                agent = game.agents[i]
+                if not agent:
+                    game.mute(i)
+                    # this is a null agent, meaning it failed to load
+                    # the other team wins
+                    print("Agent %d failed to load" % i, file=sys.stderr)
+                    game.unmute()
+                    game._agentCrash(i, quiet=True)
+                    return
+                if ("registerInitialState" in dir(agent)):
+                    game.mute(i)
+                    if self.catchExceptions:
+                        try:
+                            timed_func = TimeoutFunction(
+                                agent.registerInitialState, int(game.rules.getMaxStartupTime(i)))
+                            try:
+                                start_time = time.time()
+                                timed_func(game.state.deepCopy())
+                                time_taken = time.time() - start_time
+                                game.totalAgentTimes[i] += time_taken
+                            except TimeoutFunctionException:
+                                print("Agent %d ran out of time on startup!" %
+                                      i, file=sys.stderr)
+                                game.unmute()
+                                game.agentTimeout = True
+                                game._agentCrash(i, quiet=True)
+                                return
+                        except Exception as data:
+                            game._agentCrash(i, quiet=False)
+                            game.unmute()
+                            return
+                    else:
+                        agent.registerInitialState(game.state.deepCopy())
+                    # TODO: could this exceed the total time
+                    game.unmute()
+
+        agentIndex = games[0].startingIndex
+        numAgents = len(games[0].agents) #####WILL HAVE TO FIX
+
+            # Fetch the next agent
+        for i, game in enumerate(games):
+            maxPoints, prev = 0, 0
+            print("Offspring #" + str(i + 1))
+            self.display.initialize(games[i].state.data)
+            while not game.gameOver:
+                agent = game.agents[agentIndex]
+                move_time = 0
+                skip_action = False
+                # Generate an observation of the state
+                if 'observationFunction' in dir(agent):
+                    game.mute(agentIndex)
+                    if game.catchExceptions:
+                        try:
+                            timed_func = TimeoutFunction(agent.observationFunction, int(
+                                game.rules.getMoveTimeout(agentIndex)))
+                            try:
+                                start_time = time.time()
+                                observation = timed_func(game.state.deepCopy())
+                            except TimeoutFunctionException:
+                                skip_action = True
+                            move_time += time.time() - start_time
+                            self.unmute()
+                        except Exception as data:
+                            game._agentCrash(agentIndex, quiet=False)
+                            game.unmute()
+                            return
+                    else:
+                        observation = agent.observationFunction(
+                            game.state.deepCopy())
+                    self.unmute()
+                else:
+                    observation = game.state.deepCopy()
+
+                # Solicit an action
+                action = None
+                game.mute(agentIndex)
+                if game.catchExceptions:
+                    try:
+                        timed_func = TimeoutFunction(agent.getAction, int(
+                            game.rules.getMoveTimeout(agentIndex)) - int(move_time))
+                        try:
+                            start_time = time.time()
+                            if skip_action:
+                                raise TimeoutFunctionException()
+                            action = timed_func(observation)
+                        except TimeoutFunctionException:
+                            print("Agent %d timed out on a single move!" %
+                                  agentIndex, file=sys.stderr)
+                            game.agentTimeout = True
+                            game._agentCrash(agentIndex, quiet=True)
+                            game.unmute()
+                            return
+
+                        move_time += time.time() - start_time
+
+                        if move_time > self.rules.getMoveWarningTime(agentIndex):
+                            game.totalAgentTimeWarnings[agentIndex] += 1
+                            print("Agent %d took too long to make a move! This is warning %d" % (
+                                agentIndex, game.totalAgentTimeWarnings[agentIndex]), file=sys.stderr)
+                            if game.totalAgentTimeWarnings[agentIndex] > game.rules.getMaxTimeWarnings(agentIndex):
+                                print("Agent %d exceeded the maximum number of warnings: %d" % (
+                                    agentIndex, game.totalAgentTimeWarnings[agentIndex]), file=sys.stderr)
+                                game.agentTimeout = True
+                                game._agentCrash(agentIndex, quiet=True)
+                                game.unmute()
+                                return
+
+                        game.totalAgentTimes[agentIndex] += move_time
+                        # print "Agent: %d, time: %f, total: %f" % (agentIndex, move_time, self.totalAgentTimes[agentIndex])
+                        if game.totalAgentTimes[agentIndex] > game.rules.getMaxTotalTime(agentIndex):
+                            print("Agent %d ran out of time! (time: %1.2f)" % (
+                                agentIndex, game.totalAgentTimes[agentIndex]), file=sys.stderr)
+                            game.agentTimeout = True
+                            game._agentCrash(agentIndex, quiet=True)
+                            game.unmute()
+                            return
+                        game.unmute()
+                    except Exception as data:
+                        game._agentCrash(agentIndex)
+                        game.unmute()
+                        return
+                else:
+                    action = agent.getAction(observation)
+                game.unmute()
+
+                # Execute the action
+                game.moveHistory.append((agentIndex, action))
+                if game.catchExceptions:
+                    try:
+                        game.state = game.state.generateSuccessor(
+                            agentIndex, action)
+                    except Exception as data:
+                        game.mute(agentIndex)
+                        game._agentCrash(agentIndex)
+                        game.unmute()
+                        return
+                else:
+                    game.state = game.state.generateSuccessor(agentIndex, action)
+
+                # Change the display
+                if game.state.getScore() > prev:
+                    prev = game.state.getScore()
+                    self.display.update(game.state.data)#GameStateData.merge([g.state.data for g in games]))
+                ###idx = agentIndex - agentIndex % 2 + 1
+                ###self.display.update( self.state.makeObservation(idx).data )
+
+                # Allow for game specific conditions (winning, losing, etc.)
+                game.rules.process(game.state, game)
+                # Track progress
+                if agentIndex == numAgents + 1:
+                    game.numMoves += 1
+                # Next agent
+                agentIndex = (agentIndex + 1) % numAgents
+
+                #if _BOINC_ENABLED:
+                    #boinc.set_fraction_done(self.getProgress())
+                if game.state.getScore() > maxPoints:
+                    maxPoints = game.state.getScore()
+
+                if game.gameOver or game.state.getScore() < -500:
+                    ge[i].fitness = game.state.getScore() + maxPoints
+                    game.gameOver = True
+                    #games.pop(i)
+
+        # inform a learning agent of the game result
+        for game in games:
+            for agentIndex, agent in enumerate(game.agents):
+                if "final" in dir(agent):
+                    try:
+                        game.mute(agentIndex)
+                        game.final(game.state)
+                        game.unmute()
+                    except Exception as data:
+                        if not game.catchExceptions:
+                            raise
+                        game._agentCrash(agentIndex)
+                        game.unmute()
+                        return
+        self.display.finish()
 
 class GameState:
     """
@@ -521,7 +743,7 @@ def readCommand(argv):
     parser.add_option('-l', '--layout', dest='layout',
                       help=default(
                           'the LAYOUT_FILE from which to load the map layout'),
-                      metavar='LAYOUT_FILE', default='mediumClassic')
+                      metavar='LAYOUT_FILE', default='originalClassic')
     parser.add_option('-p', '--pacman', dest='pacman',
                       help=default(
                           'the agent TYPE in the pacmanAgents module to use'),
@@ -533,7 +755,7 @@ def readCommand(argv):
     parser.add_option('-g', '--ghosts', dest='ghost',
                       help=default(
                           'the ghost agent TYPE in the ghostAgents module to use'),
-                      metavar='TYPE', default='RandomGhost')
+                      metavar='TYPE', default='DirectionalGhost')
     parser.add_option('-k', '--numghosts', type='int', dest='numGhosts',
                       help=default('The maximum number of ghosts to use'), default=4)
     parser.add_option('-z', '--zoom', type='float', dest='zoom',
@@ -578,7 +800,7 @@ def readCommand(argv):
         args['numTraining'] = options.numTraining
         if 'numTraining' not in agentOpts:
             agentOpts['numTraining'] = options.numTraining
-    pacman = pacmanType(**agentOpts)  # Instantiate Pacman with agentArgs
+    pacman = pacmanType#(**agentOpts)  # Instantiate Pacman with agentArgs
     args['pacman'] = pacman
 
     # Don't display training games
@@ -588,7 +810,7 @@ def readCommand(argv):
 
     # Choose a ghost agent
     ghostType = loadAgent(options.ghost, noKeyboard)
-    args['ghosts'] = [ghostType(i+1) for i in range(options.numGhosts)]
+    args['ghosts'] = ghostType
 
     # Choose a display format
     if options.quietGraphics:
@@ -676,6 +898,25 @@ def runGames(layout, pacman, ghosts, display, numGames, record, numTraining=0, c
     import __main__
     __main__.__dict__['_display'] = display
 
+    local_dir = os.path.dirname(__file__)
+    config_path = os.path.join(local_dir, "NEAT_config.txt")
+    config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+        neat.DefaultSpeciesSet, neat.DefaultStagnation, config_path)
+
+    p = neat.Population(config)
+    p.add_reporter(neat.StdOutReporter(True))
+    stats = neat.StatisticsReporter()
+    p.add_reporter(stats)
+
+    rules = ClassicGameRules(timeout)
+    gameDisplay = display
+    rules.quiet = False
+    #game = rules.newGame(layout, pacman, ghosts, gameDisplay, False, catchExceptions)
+    game = NEAT_Game(layout, pacman, ghosts, gameDisplay, False, catchExceptions, rules)
+
+    winner = p.run(game.run_NEAT, numGames)
+
+    """
     rules = ClassicGameRules(timeout)
     games = []
 
@@ -717,6 +958,7 @@ def runGames(layout, pacman, ghosts, display, numGames, record, numTraining=0, c
             [['Loss', 'Win'][int(w)] for w in wins]))
 
     return games
+    """
 
 
 if __name__ == '__main__':
@@ -732,7 +974,7 @@ if __name__ == '__main__':
     """
     args = readCommand(sys.argv[1:])  # Get game components based on input
     runGames(**args)
- 
+
     # import cProfile
     # cProfile.run("runGames( **args )")
     pass

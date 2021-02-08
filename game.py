@@ -537,6 +537,27 @@ class GameStateData:
                 Configuration(pos, Directions.STOP), isPacman))
         self._eaten = [False for a in self.agentStates]
 
+    def merge(others):
+        if others == None:
+            return None
+
+        state = others[0].deepCopy()
+
+        for row in range(state.layout.food.width):
+            for col in range(state.layout.food.height):
+                for other in others:
+                    state.layout.food[row][col] = state.layout.food[row][col] or other.layout.food[row][col]
+
+        for other in others:
+            for capsule in other.layout.capsules:
+                if capsule not in state.layout.capsules:
+                    state.layout.capsules.append(capsule)
+
+            for agentPos in other.layout.agentPositions:
+                state.layout.agentPositions.append(agentPos)
+
+        return state
+    merge = staticmethod(merge)
 
 try:
     import boinc

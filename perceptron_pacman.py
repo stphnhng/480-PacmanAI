@@ -49,5 +49,17 @@ class PerceptronClassifierPacman(PerceptronClassifier):
         for iteration in range(self.max_iterations):
             print("Starting iteration ", iteration, "...")
             for i in range(len(trainingData)):
-                "*** YOUR CODE HERE ***"
-                util.raiseNotDefined()
+                data = trainingData[i]
+                f = data[0]
+                actions = data[1]
+                actual_label = trainingLabels[i]
+                # score(s, a) = w * f(s, a)
+                scores = [(action, self.weights * f[action]) for action in actions]
+                # get predicted label from the one with highest score
+                max_score = max(scores, key = lambda score : scores[1])
+                predicted_label = max_score[0]
+                
+                if predicted_label != actual_label:
+                    self.weights += f[actual_label]
+                    self.weights -= f[predicted_label]
+            

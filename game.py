@@ -136,7 +136,7 @@ class AgentState:
         self.scaredTimer = 0
         # state below potentially used for contest only
         self.numCarrying = 0
-        self.numReturned = 0
+    #   self.numReturned = 0
 
     def __str__(self):
         if self.isPacman:
@@ -157,7 +157,7 @@ class AgentState:
         state.configuration = self.configuration
         state.scaredTimer = self.scaredTimer
         state.numCarrying = self.numCarrying
-        state.numReturned = self.numReturned
+    #    state.numReturned = self.numReturned
         return state
 
     def getPosition(self):

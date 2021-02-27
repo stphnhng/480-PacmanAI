@@ -41,9 +41,11 @@ class QLearningAgent(ReinforcementAgent):
     def __init__(self, **args):
         "You can initialize Q-values here..."
         ReinforcementAgent.__init__(self, **args)
-
+        self.Q_VALUES = []
+        
         "*** YOUR CODE HERE ***"
 
+    # state = GameState in pacman.py
     def getQValue(self, state, action):
         """
           Returns Q(state,action)
@@ -51,7 +53,11 @@ class QLearningAgent(ReinforcementAgent):
           or the Q node value otherwise
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        if (hash(state), action) not in self.Q_VALUES:
+          self.Q_VALUES[(hash(state),action)] = 0.0
+          return 0.0
+        else:
+          return self.Q_VALUES[(hash(state),action)]
 
 
     def computeValueFromQValues(self, state):

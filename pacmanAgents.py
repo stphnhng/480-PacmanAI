@@ -58,6 +58,30 @@ class GreedyAgent(Agent):
         bestActions = [pair[1] for pair in scored if pair[0] == bestScore]
         return random.choice(bestActions)
 
+class QAgent(Agent):
+    "An agent that turns left at every opportunity"
+
+    def getAction(self, state):
+        # hash(state)
+
+
+        print(hash(state))
+        print(type(state))
+        legal = state.getLegalPacmanActions()
+        current = state.getPacmanState().configuration.direction
+        if current == Directions.STOP:
+            current = Directions.NORTH
+        left = Directions.LEFT[current]
+        if left in legal:
+            return left
+        if current in legal:
+            return current
+        if Directions.RIGHT[current] in legal:
+            return Directions.RIGHT[current]
+        if Directions.LEFT[left] in legal:
+            return Directions.LEFT[left]
+        return Directions.STOP
+
 
 def scoreEvaluation(state):
     return state.getScore()

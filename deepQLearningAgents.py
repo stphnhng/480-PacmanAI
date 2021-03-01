@@ -27,7 +27,6 @@ class DeepQAgent(Agent):
     # Called Third (Second in loop)
     # Requires a return of direction
     def getAction(self, state):
-        # hash(state)
 
 
         print(hash(state))

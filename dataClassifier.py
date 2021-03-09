@@ -127,8 +127,9 @@ def enhancedPacmanFeatures(state, action):
     # """
 
     features = util.Counter()
+    """
     successor = state.generateSuccessor(0, action)
-    features['foodcount'] = successor.getFood().count()
+    
 
     pac_pos = successor.getPacmanPosition()
     ghost_pos = successor.getGhostPositions()
@@ -138,6 +139,66 @@ def enhancedPacmanFeatures(state, action):
         all_pos_dist.append(util.manhattanDistance(g_pos, pac_pos))
     nearest_ghost = min(all_pos_dist)
     features['nearestghostdistance'] = nearest_ghost
+    """
+
+    # get successor pacman position
+    successor = state.generateSuccessor(0, action)
+    pacmanPos = successor.getPacmanPosition()
+
+    # get current pacman position
+    pacmanPos2 = state.getPacmanPosition()
+
+    # consider food count
+    features['foodcount'] = successor.getFood().count()
+
+    # consider food positions
+    food_grid = state.getFood()
+    foodDistances = []
+
+    for x in range(food_grid.width):
+        for y in range(food_grid.height):
+            if food_grid[x][y] == True:
+                foodDistances.append(abs(pacmanPos[0] - x) + abs(pacmanPos[1] - y))
+
+    foodDistances = sorted(foodDistances)
+    for i, j in zip(range(len(foodDistances)), [1.5, 0.9] + [0.9] * 2):
+        features['food' + str(i)] =  j * foodDistances[i]
+
+
+    # consider position of ghosts
+    minDistance = sys.maxsize
+    ghostDistances = []
+    
+    for ghostPos in state.getGhostPositions():
+        distance = util.manhattanDistance(pacmanPos2, ghostPos)
+        if distance < minDistance:
+            features['closestGhost'] = distance
+            minDistance = distance
+        ghostDistances.append(distance)
+
+    for i in range(len(ghostDistances)):
+        features['ghost' + str(i)] = ghostDistances[i]
+
+    # consider power pallets
+    minDistance = sys.maxsize
+    palletsDistances = []
+
+    for palletPos in state.getCapsules():
+        distance = util.manhattanDistance(pacmanPos2, palletPos)
+        if distance < minDistance:
+            features['pallet'] = distance
+            minDistance = distance
+        palletsDistances.append(distance)
+
+    palletsDistances = sorted(palletsDistances)
+    for i in range(len(palletsDistances)):
+        features['pallet' + str(i)] = 1/palletsDistances[i]
+
+
+    # consider walls
+    walls = state.getWalls()
+    wallsDiances = [util.manhattanDistance(pacmanPos2, (x, y)) for x in range(walls.width) for y in range(walls.height) if walls[x][y]]
+    features['walls'] = min(wallsDiances)
 
     return features
 

@@ -23,6 +23,9 @@ import mira
 import samples
 import sys
 import util
+import math
+from pacman import GameState, Directions
+
 from pacman import GameState
 
 TEST_SET_SIZE = 100
@@ -121,27 +124,23 @@ def enhancedPacmanFeatures(state, action):
     """
     For each state, this function is called with each legal action.
     It should return a counter with { <feature name> : <feature value>, ... }
-    """
+    # """
+
     features = util.Counter()
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    successor = state.generateSuccessor(0, action)
+    features['foodcount'] = successor.getFood().count()
+
+    pac_pos = successor.getPacmanPosition()
+    ghost_pos = successor.getGhostPositions()
+    all_pos_dist = []
+
+    for g_pos in ghost_pos:
+        all_pos_dist.append(util.manhattanDistance(g_pos, pac_pos))
+    nearest_ghost = min(all_pos_dist)
+    features['nearestghostdistance'] = nearest_ghost
+
     return features
 
-
-def contestFeatureExtractorDigit(datum):
-    """
-    Specify features to use for the minicontest
-    """
-    features =  basicFeatureExtractorDigit(datum)
-    return features
-
-def enhancedFeatureExtractorFace(datum):
-    """
-    Your feature extraction playground for faces.
-    It is your choice to modify this.
-    """
-    features =  basicFeatureExtractorFace(datum)
-    return features
 
 def analysis(classifier, guesses, testLabels, testData, rawTestData, printImage):
     """
@@ -262,21 +261,7 @@ def readCommand( argv ):
     else:
         print("using minicontest feature extractor")
     print("training set size:\t" + str(options.training))
-    if(options.data=="digits"):
-        printImage = ImagePrinter(DIGIT_DATUM_WIDTH, DIGIT_DATUM_HEIGHT).printImage
-        if (options.features):
-            featureFunction = enhancedFeatureExtractorDigit
-        else:
-            featureFunction = basicFeatureExtractorDigit
-        if (options.classifier == 'minicontest'):
-            featureFunction = contestFeatureExtractorDigit
-    elif(options.data=="faces"):
-        printImage = ImagePrinter(FACE_DATUM_WIDTH, FACE_DATUM_HEIGHT).printImage
-        if (options.features):
-            featureFunction = enhancedFeatureExtractorFace
-        else:
-            featureFunction = basicFeatureExtractorFace
-    elif(options.data=="pacman"):
+    if(options.data=="pacman"):
         printImage = None
         if (options.features):
             featureFunction = enhancedFeatureExtractorPacman
@@ -308,17 +293,7 @@ def readCommand( argv ):
             print(USAGE_STRING)
             sys.exit(2)
 
-    if(options.classifier == "mostFrequent"):
-        classifier = mostFrequent.MostFrequentClassifier(legalLabels)
-    elif(options.classifier == "naiveBayes" or options.classifier == "nb"):
-        classifier = naiveBayes.NaiveBayesClassifier(legalLabels)
-        classifier.setSmoothing(options.smoothing)
-        if (options.autotune):
-            print("using automatic tuning for naivebayes")
-            classifier.automaticTuning = True
-        else:
-            print("using smoothing parameter k=%f for naivebayes" %  options.smoothing)
-    elif(options.classifier == "perceptron"):
+    if(options.classifier == "perceptron"):
         if options.data != 'pacman':
             classifier = perceptron.PerceptronClassifier(legalLabels,options.iterations)
         else:
@@ -379,12 +354,8 @@ def runClassifier(args, options):
         rawValidationData, validationLabels = samples.loadPacmanData(validationData, numTest)
         rawTestData, testLabels = samples.loadPacmanData(testData, numTest)
     else:
-        rawTrainingData = samples.loadDataFile("digitdata/trainingimages", numTraining,DIGIT_DATUM_WIDTH,DIGIT_DATUM_HEIGHT)
-        trainingLabels = samples.loadLabelsFile("digitdata/traininglabels", numTraining)
-        rawValidationData = samples.loadDataFile("digitdata/validationimages", numTest,DIGIT_DATUM_WIDTH,DIGIT_DATUM_HEIGHT)
-        validationLabels = samples.loadLabelsFile("digitdata/validationlabels", numTest)
-        rawTestData = samples.loadDataFile("digitdata/testimages", numTest,DIGIT_DATUM_WIDTH,DIGIT_DATUM_HEIGHT)
-        testLabels = samples.loadLabelsFile("digitdata/testlabels", numTest)
+        print("Wrong input. Choose the pacmandata directory.")
+        sys.exit()
 
 
     # Extract features

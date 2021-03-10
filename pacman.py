@@ -533,7 +533,7 @@ def readCommand(argv):
     parser.add_option('-g', '--ghosts', dest='ghost',
                       help=default(
                           'the ghost agent TYPE in the ghostAgents module to use'),
-                      metavar='TYPE', default='RandomGhost')
+                      metavar='TYPE', default='DirectionalGhost')
     parser.add_option('-k', '--numghosts', type='int', dest='numGhosts',
                       help=default('The maximum number of ghosts to use'), default=4)
     parser.add_option('-z', '--zoom', type='float', dest='zoom',
@@ -553,7 +553,7 @@ def readCommand(argv):
     parser.add_option('-c', '--catchExceptions', action='store_true', dest='catchExceptions',
                       help='Turns on exception handling and timeouts during games', default=False)
     parser.add_option('--timeout', dest='timeout', type='int',
-                      help=default('Maximum length of time an agent can spend computing in a single game'), default=30)
+                      help=default('Maximum length of time an agent can spend computing in a single game'), default=5)
 
     options, otherjunk = parser.parse_args(argv)
     if len(otherjunk) != 0:
@@ -611,9 +611,9 @@ def readCommand(argv):
     if options.gameToReplay != None:
         print('Replaying recorded game %s.' % options.gameToReplay)
         import pickle
-        f = open(options.gameToReplay)
+        f = open(options.gameToReplay, "rb")
         try:
-            recorded = pickle.load(f)
+            recorded = pickle.load(f, encoding="latin1")
         finally:
             f.close()
         recorded['display'] = args['display']
@@ -700,7 +700,7 @@ def runGames(layout, pacman, ghosts, display, numGames, record, numTraining=0, c
             import pickle
             fname = ('recorded-game-%d' % (i + 1)) + \
                 '-'.join([str(t) for t in time.localtime()[1:6]])
-            f = file(fname, 'w')
+            f = open(fname, "wb")
             components = {'layout': layout, 'actions': game.moveHistory}
             pickle.dump(components, f)
             f.close()

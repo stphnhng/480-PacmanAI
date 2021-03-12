@@ -42,7 +42,7 @@ class QLearningAgent(ReinforcementAgent):
         "You can initialize Q-values here..."
         ReinforcementAgent.__init__(self, **args)
         "*** YOUR CODE HERE ***"
-        self.Q_VALUES = util.Counter()
+        self.Q_VALUES = {}
 
     # state = GameState in pacman.py
     def getQValue(self, state, action):

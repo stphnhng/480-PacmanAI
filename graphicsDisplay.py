@@ -259,7 +259,7 @@ class PacmanGraphics:
             self.removeFood(newState._foodEaten, self.food)
         if newState._capsuleEaten != None:
             self.removeCapsule(newState._capsuleEaten, self.capsules)
-        self.infoPane.updateScore(newState.score)
+        #self.infoPane.updateScore(newState.score)
         if 'ghostDistances' in dir(newState):
             self.infoPane.updateGhostDistances(newState.ghostDistances)
 
@@ -332,7 +332,7 @@ class PacmanGraphics:
                     (frames-i)/frames, py*i/frames + fy*(frames-i)/frames
                 self.movePacman(pos, self.getDirection(pacman), image)
                 refresh()
-                #sleep(abs(self.frameTime) / frames)
+                sleep(abs(self.frameTime) / frames)
         else:
             self.movePacman(self.getPosition(pacman),
                             self.getDirection(pacman), image)

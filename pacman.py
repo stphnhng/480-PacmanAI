@@ -54,17 +54,21 @@ import random
 import os
 
 import neat
+import visualize
 
 ###################################################
 # YOUR INTERFACE TO THE PACMAN WORLD: A GameState #
 ###################################################
 
 class NEAT_Game():
+    GENERATION = 1
+    SHOW = 1
+    MAX_STEPS = 20
 
     def __init__(self, layout, pacman, ghosts, gameDisplay, quiet, catchExceptions, rules):
         self.layout = layout
         self.pacman = pacman
-        self.ghost = ghosts
+        self.ghosts = ghosts
         self.display = gameDisplay
         self.quiet = quiet
         self.catchExceptions = catchExceptions
@@ -75,24 +79,19 @@ class NEAT_Game():
         Main control loop for game play.
         """
         nets = []
-        pacs = []
         ge = []
         games = []
+        max_scores = []
 
         for _, g in genomes:
-            net = neat.nn.FeedForwardNetwork.create(g, config)
+            net = neat.nn.recurrent.RecurrentNetwork.create(g, config)
             nets.append(net)
             g.fitness = 0
             ge.append(g)
-            pacman = self.pacman()
-            pacman.setNet(net)
-            pacs.append(pacman)
-            game = self.rules.newGame(self.layout.deepCopy(), pacman,
-                [self.ghost(i + 1) for i in range(0)],
-                self.display, self.quiet, self.catchExceptions)
+            max_scores.append(0)
+            game = self.rules.newGame(self.layout.deepCopy(), self.pacman,
+                self.ghosts, self.display, self.quiet, self.catchExceptions)
             games.append(game)
-
-
 
         for game in games:
             game.numMoves = 0
@@ -141,11 +140,20 @@ class NEAT_Game():
 
             # Fetch the next agent
         for i, game in enumerate(games):
-            maxPoints, prev = 0, 0
-            print("Offspring #" + str(i + 1))
-            self.display.initialize(games[i].state.data)
+            prev_score = 0
+            count = 0
+            steps = 1
+            if self.GENERATION % self.SHOW == 0:
+                self.display.initialize(games[i].state.data)
+            #print("Offspring #" + str(i + 1))
             while not game.gameOver:
+
                 agent = game.agents[agentIndex]
+
+                if agentIndex == 0:
+                    agent.setNet(nets[i])
+                    agent.setGenome(ge[i])
+
                 move_time = 0
                 skip_action = False
                 # Generate an observation of the state
@@ -240,8 +248,9 @@ class NEAT_Game():
                     game.state = game.state.generateSuccessor(agentIndex, action)
 
                 # Change the display
-                if game.state.getScore() > prev:
-                    prev = game.state.getScore()
+                #if game.state.getScore() > prev:
+                    #prev = game.state.getScore()
+                if self.GENERATION % self.SHOW == 0:
                     self.display.update(game.state.data)#GameStateData.merge([g.state.data for g in games]))
                 ###idx = agentIndex - agentIndex % 2 + 1
                 ###self.display.update( self.state.makeObservation(idx).data )
@@ -251,18 +260,39 @@ class NEAT_Game():
                 # Track progress
                 if agentIndex == numAgents + 1:
                     game.numMoves += 1
-                # Next agent
-                agentIndex = (agentIndex + 1) % numAgents
 
+                #print("pac #" + str(i) + " | score=" + str(game.state.getScore()))
+                if game.state.getScore() > prev_score: #or (pac_x == 11 and pac_y == 16):
+                    ge[i].fitness += 10
+                    count = 0
+                else:
+                    count += 1
+
+                prev_score = game.state.getScore()
                 #if _BOINC_ENABLED:
                     #boinc.set_fraction_done(self.getProgress())
-                if game.state.getScore() > maxPoints:
-                    maxPoints = game.state.getScore()
+                if game.state.getScore() > max_scores[i]:
+                    max_scores[i] = game.state.getScore()
 
-                if game.gameOver or game.state.getScore() < -500:
-                    ge[i].fitness = game.state.getScore() + maxPoints
+                steps += 1
+
+                if game.gameOver or count > 200: #or steps > self.MAX_STEPS:
                     game.gameOver = True
+                    #if ge[i].fitness > (self.MAX_STEPS * 10) * .8:
+                        #NEAT_Game.MAX_STEPS += 10
+                    if game.state.isWin():
+                        ge[i].fitness += 10000
+                    print("Offspring " + str(i + 1) + ". Fitness: " + str(ge[i].fitness))
+                    #nets.pop(i)
+                    #ge.pop(i)
                     #games.pop(i)
+                    #max_scores.pop(i)
+
+                #for game in games:
+                    #print("yes")
+                    #self.display.update(game.state.data)
+
+                agentIndex = (agentIndex + 1) % numAgents
 
         # inform a learning agent of the game result
         for game in games:
@@ -279,6 +309,7 @@ class NEAT_Game():
                         game.unmute()
                         return
         self.display.finish()
+        self.GENERATION += 1
 
 class GameState:
     """
@@ -341,6 +372,7 @@ class GameState:
 
         # Time passes
         if agentIndex == 0:
+            #pass
             state.data.scoreChange += -TIME_PENALTY  # Penalty for waiting around
         else:
             GhostRules.decrementTimer(state.data.agentStates[agentIndex])
@@ -531,7 +563,8 @@ class ClassicGameRules:
 
     def lose(self, state, game):
         if not self.quiet:
-            print("Pacman died! Score: %d" % state.data.score)
+            pass
+            #print("Pacman died! Score: %d" % state.data.score)
         game.gameOver = True
 
     def getProgress(self, game):
@@ -743,11 +776,11 @@ def readCommand(argv):
     parser.add_option('-l', '--layout', dest='layout',
                       help=default(
                           'the LAYOUT_FILE from which to load the map layout'),
-                      metavar='LAYOUT_FILE', default='originalClassic')
+                      metavar='LAYOUT_FILE', default='trickyClassic')
     parser.add_option('-p', '--pacman', dest='pacman',
                       help=default(
                           'the agent TYPE in the pacmanAgents module to use'),
-                      metavar='TYPE', default='KeyboardAgent')
+                      metavar='TYPE', default='NEAT_Agent')
     parser.add_option('-t', '--textGraphics', action='store_true', dest='textGraphics',
                       help='Display output as text only', default=False)
     parser.add_option('-q', '--quietTextGraphics', action='store_true', dest='quietGraphics',
@@ -771,7 +804,7 @@ def readCommand(argv):
     parser.add_option('-x', '--numTraining', dest='numTraining', type='int',
                       help=default('How many episodes are training (suppresses output)'), default=0)
     parser.add_option('--frameTime', dest='frameTime', type='float',
-                      help=default('Time to delay between frames; <0 means keyboard'), default=0.1)
+                      help=default('Time to delay between frames; <0 means keyboard'), default=0)
     parser.add_option('-c', '--catchExceptions', action='store_true', dest='catchExceptions',
                       help='Turns on exception handling and timeouts during games', default=False)
     parser.add_option('--timeout', dest='timeout', type='int',
@@ -800,7 +833,7 @@ def readCommand(argv):
         args['numTraining'] = options.numTraining
         if 'numTraining' not in agentOpts:
             agentOpts['numTraining'] = options.numTraining
-    pacman = pacmanType#(**agentOpts)  # Instantiate Pacman with agentArgs
+    pacman = pacmanType(**agentOpts)  # Instantiate Pacman with agentArgs
     args['pacman'] = pacman
 
     # Don't display training games
@@ -810,7 +843,7 @@ def readCommand(argv):
 
     # Choose a ghost agent
     ghostType = loadAgent(options.ghost, noKeyboard)
-    args['ghosts'] = ghostType
+    args['ghosts'] = [ghostType(i+1) for i in range(options.numGhosts)]
 
     # Choose a display format
     if options.quietGraphics:
@@ -904,9 +937,11 @@ def runGames(layout, pacman, ghosts, display, numGames, record, numTraining=0, c
         neat.DefaultSpeciesSet, neat.DefaultStagnation, config_path)
 
     p = neat.Population(config)
+    #p = neat.Checkpointer.restore_checkpoint("neat-checkpoint-5039-11OFFSET")
     p.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
+    p.add_reporter(neat.Checkpointer(50))
 
     rules = ClassicGameRules(timeout)
     gameDisplay = display
@@ -914,8 +949,15 @@ def runGames(layout, pacman, ghosts, display, numGames, record, numTraining=0, c
     #game = rules.newGame(layout, pacman, ghosts, gameDisplay, False, catchExceptions)
     game = NEAT_Game(layout, pacman, ghosts, gameDisplay, False, catchExceptions, rules)
 
-    winner = p.run(game.run_NEAT, numGames)
+    #winner = p.run(game.run_NEAT, numGames)
 
+    #visualize.plot_stats(stats, ylog=False, view=True)
+    #visualize.plot_species(stats, view=True)
+
+    import pickle
+    #pickle.dump(winner, open("winner.p", "wb"))
+    winner = pickle.load(open("winner.p", "rb"))
+    game.run_NEAT([(0, winner)], config)
     """
     rules = ClassicGameRules(timeout)
     games = []

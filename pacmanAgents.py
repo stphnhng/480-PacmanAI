@@ -63,116 +63,227 @@ def scoreEvaluation(state):
     return state.getScore()
 
 class NEAT_Agent(Agent):
+    OFFSET = 4
+
+    def setGenome(self, genome):
+        self.genome = genome
 
     def setNet(self, net):
         self.net = net
 
+    def printGrid(self, grid):
+        for i, item in enumerate(grid):
+            if i % (self.OFFSET * 2 + 1) == 0:
+                print("")
+            if item == 0:
+                print(" ", end=" ")
+            elif item == .5:
+                print("O", end=" ")
+            elif item == 1:
+                print(".", end=" ")
+            elif item == -.5:
+                print("#", end=" ")
+            elif item == -1:
+                print("G", end=" ")
+        print("")
+
+    def invertY(self, state, y):
+        return state.data.layout.height - y
+
+    def headingNorth(self, state):
+        grid = []
+
+        pac_x, pac_y = state.getPacmanPosition()
+        ghosts = state.getGhostPositions()
+        capsules = state.getCapsules()
+
+        for y in reversed(range(pac_y - self.OFFSET, pac_y + self.OFFSET + 1)):
+            for x in range(pac_x - self.OFFSET, pac_x + self.OFFSET + 1):
+                if y < 0:
+                    grid.append(-1)
+                elif y >= state.data.layout.height:
+                    grid.append(-1)
+                elif x < 0:
+                    grid.append(-1)
+                elif x >= state.data.layout.width:
+                    grid.append(-1)
+                else:
+                    if state.hasWall(x, y):
+                        grid.append(-1)
+                    elif (x, y) in ghosts:
+                        grid.append(-.5)
+                    elif state.hasFood(x, y):
+                        grid.append(1)
+                    else:
+                        grid.append(0)
+
+        #self.printGrid(grid)
+        return grid
+
+    def headingSouth(self, state):
+        grid = []
+
+        pac_x, pac_y = state.getPacmanPosition()
+        ghosts = state.getGhostPositions()
+        capsules = state.getCapsules()
+
+        for y in range(pac_y - self.OFFSET, pac_y + self.OFFSET + 1):
+            for x in reversed(range(pac_x - self.OFFSET, pac_x + self.OFFSET + 1)):
+                if y < 0:
+                    grid.append(-1)
+                elif y >= state.data.layout.height:
+                    grid.append(-1)
+                elif x < 0:
+                    grid.append(-1)
+                elif x >= state.data.layout.width:
+                    grid.append(-1)
+                else:
+                    if state.hasWall(x, y):
+                        grid.append(-1)
+                    elif (x, y) in ghosts:
+                        grid.append(-.5)
+                    elif state.hasFood(x, y):
+                        grid.append(1)
+                    else:
+                        grid.append(0)
+
+        #self.printGrid(grid)
+        return grid
+
+    def headingWest(self, state):
+        grid = []
+
+        pac_x, pac_y = state.getPacmanPosition()
+        ghosts = state.getGhostPositions()
+        capsules = state.getCapsules()
+
+        for x in range(pac_x - self.OFFSET, pac_x + self.OFFSET + 1):
+            for y in range(pac_y - self.OFFSET, pac_y + self.OFFSET + 1):
+                if y < 0:
+                    grid.append(-1)
+                elif y >= state.data.layout.height:
+                    grid.append(-1)
+                elif x < 0:
+                    grid.append(-1)
+                elif x >= state.data.layout.width:
+                    grid.append(-1)
+                else:
+                    if state.hasWall(x, y):
+                        grid.append(-1)
+                    elif (x, y) in ghosts:
+                        grid.append(-.5)
+                    elif state.hasFood(x, y):
+                        grid.append(1)
+                    else:
+                        grid.append(0)
+
+        #self.printGrid(grid)
+        return grid
+
+    def headingEast(self, state):
+        grid = []
+
+        pac_x, pac_y = state.getPacmanPosition()
+        ghosts = state.getGhostPositions()
+        capsules = state.getCapsules()
+
+        for x in reversed(range(pac_x - self.OFFSET, pac_x + self.OFFSET + 1)):
+            for y in reversed(range(pac_y - self.OFFSET, pac_y + self.OFFSET + 1)):
+                if y < 0:
+                    grid.append(-1)
+                elif y >= state.data.layout.height:
+                    grid.append(-1)
+                elif x < 0:
+                    grid.append(-1)
+                elif x >= state.data.layout.width:
+                    grid.append(-1)
+                else:
+                    if state.hasWall(x, y):
+                        grid.append(-1)
+                    elif (x, y) in ghosts:
+                        grid.append(-.5)
+                    elif state.hasFood(x, y):
+                        grid.append(1)
+                    else:
+                        grid.append(0)
+
+        #self.printGrid(grid)
+        return grid
+
     def getAction(self, state):
 
-        def invert(x, y):
-            x = state.data.layout.width - x
-            y = state.data.layout.height - y
-            return int(x) - 1, int(y) - 1
+        inputs = []
 
-        layout = []
+        direction = state.getPacmanState().getDirection()
+        if direction is Directions.NORTH or direction is Directions.STOP:
+            inputs = self.headingNorth(state)
+        elif direction is Directions.SOUTH:
+            inputs = self.headingSouth(state)
+        elif direction is Directions.EAST:
+            inputs = self.headingEast(state)
+        elif direction is Directions.WEST:
+            inputs = self.headingWest(state)
 
-        for row in range(state.data.layout.height):
-            layout.append([])
-        for col in layout:
-            col += [0 for _ in range(state.data.layout.width)]
-
-        x, y = state.getPacmanPosition()
-        x, y = invert(x, y)
-
-        layout[y][x] = 1
-
-        for pos in state.getGhostPositions():
-            x, y = pos
-            x, y = invert(x, y)
-            layout[y][x] = -10
-
-        for pos in state.getCapsules():
-            x, y = pos
-            x, y = invert(x, y)
-            layout[y][x] = 10
-
-        food = state.getFood().data
-        for i in range(len(food)):
-            for j in range(len(food[0])):
-                x, y = invert(i, j)
-                if food[i][j]:
-                    layout[y][x] = 5
-
-        walls = state.getWalls().data
-        for i in range(len(walls)):
-            for j in range(len(walls[0])):
-                x, y = invert(i, j)
-                if walls[i][j]:
-                    layout[y][x] = -5
-
-        #for row in layout:
-            #print(row)
-
-        flat = []
-        for row in layout:
-            for item in row:
-                flat.append(item)
-
-        direction = state.getPacmanState().configuration.direction
-        if direction == Directions.STOP:
-            direction = Directions.NORTH
-
-        if direction == Directions.NORTH:
-            flat.append(20)
-        elif direction == Directions.SOUTH:
-            flat.append(40)
-        elif direction == Directions.WEST:
-            flat.append(-20)
-        elif direction == Directions.EAST:
-            flat.append(-40)
-        output = self.net.activate(tuple(flat))
+        output = self.net.activate(inputs)
+        max = 0
+        for i in range(len(output)):
+            if output[i] > output[max]:
+                max = i
 
         legal = state.getLegalPacmanActions()
 
-        if direction == Directions.NORTH:
-            if output[0] > 0.5 and Directions.NORTH in legal:
-                return Directions.NORTH
-            if output[1] > 0.5 and Directions.SOUTH in legal:
-                return Directions.SOUTH
-            if output[2] > 0.5 and Directions.EAST in legal:
-                return Directions.EAST
-            if output[3] > 0.5 and Directions.WEST in legal:
-                return Directions.WEST
-            return Directions.STOP
-        if direction == Directions.SOUTH:
-            if output[0] > 0.5 and Directions.SOUTH in legal:
-                return Directions.SOUTH
-            if output[1] > 0.5 and Directions.NORTH in legal:
-                return Directions.NORTH
-            if output[2] > 0.5 and Directions.WEST in legal:
-                return Directions.WEST
-            if output[3] > 0.5 and Directions.EAST in legal:
-                return Directions.EAST
-            return Directions.STOP
-        if direction == Directions.WEST:
-            if output[0] > 0.5 and Directions.WEST in legal:
-                return Directions.WEST
-            if output[1] > 0.5 and Directions.EAST in legal:
-                return Directions.EAST
-            if output[2] > 0.5 and Directions.NORTH in legal:
-                return Directions.NORTH
-            if output[3] > 0.5 and Directions.SOUTH in legal:
-                return Directions.SOUTH
-            return Directions.STOP
-        if direction == Directions.EAST:
-            if output[0] > 0.5 and Directions.EAST in legal:
-                return Directions.EAST
-            if output[1] > 0.5 and Directions.WEST in legal:
-                return Directions.WEST
-            if output[2] > 0.5 and Directions.SOUTH in legal:
-                return Directions.SOUTH
-            if output[3] > 0.5 and Directions.NORTH in legal:
-                return Directions.NORTH
-            return Directions.STOP
+        """
+        if max == 0:
+            print("forward")
+        elif max == 1:
+            print("back")
+        elif max == 2:
+            print("right")
+        elif max == 3:
+            print("left")
+        """
 
+        if direction is Directions.NORTH or direction is Directions.STOP:
+            if max == 0 and Directions.NORTH in legal:
+                #self.genome.fitness += .2
+                return Directions.NORTH
+            elif max == 1 and Directions.SOUTH in legal:
+                #self.genome.fitness += .2
+                return Directions.SOUTH
+            elif max == 2 and Directions.EAST in legal:
+                #self.genome.fitness += .2
+                return Directions.EAST
+            elif max == 3 and Directions.WEST in legal:
+                #self.genome.fitness += .2
+                return Directions.WEST
+        elif direction is Directions.SOUTH:
+            if max == 0 and Directions.SOUTH in legal:
+                return Directions.SOUTH
+            elif max == 1 and Directions.NORTH in legal:
+                return Directions.NORTH
+            elif max == 2 and Directions.WEST in legal:
+                return Directions.WEST
+            elif max == 3 and Directions.EAST in legal:
+                return Directions.EAST
+        elif direction is Directions.WEST:
+            if max == 0 and Directions.WEST in legal:
+                return Directions.WEST
+            elif max == 1 and Directions.EAST in legal:
+                return Directions.EAST
+            elif max == 2 and Directions.NORTH in legal:
+                return Directions.NORTH
+            elif max == 3 and Directions.SOUTH in legal:
+                return Directions.SOUTH
+        elif direction is Directions.EAST:
+            if max == 0 and Directions.EAST in legal:
+                return Directions.EAST
+            elif max == 1 and Directions.WEST in legal:
+                return Directions.WEST
+            elif max == 2 and Directions.SOUTH in legal:
+                return Directions.SOUTH
+            elif max == 3 and Directions.NORTH in legal:
+                return Directions.NORTH
+
+        #self.genome.fitness -= .5
+        return Directions.STOP
 #
